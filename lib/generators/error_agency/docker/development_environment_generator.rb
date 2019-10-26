@@ -32,6 +32,7 @@ module ErrorAgency
 
         template "rails_base/Dockerfile.erb", "config/docker/rails_base/Dockerfile"
         template "rails_base/entrypoint.sh.erb", "config/docker/rails_base/entrypoint.sh"
+        system 'chmod 755 config/docker/rails_base/entrypoint.sh'
       end
 
       def create_elasticsearch
@@ -41,9 +42,14 @@ module ErrorAgency
         end
       end
 
+      def write_configs
+
+      end
+
       def build_images
         if options[:build]
-          system "docker-compose build"
+          system "docker-compose build && docker-compose run --rm shell bundle"
+
         end
       end
 
