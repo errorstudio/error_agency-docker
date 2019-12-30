@@ -11,7 +11,7 @@ module ErrorAgency
       class_option :redis, type: :boolean, desc: "Generate docker configs for Redis. Installs by default.", default: true
       class_option :mailhog, type: :boolean, desc: "Generate docker configs for Mailhog. Installed by default.", default: true
       class_option :elasticsearch, type: :boolean, desc: "Generate docker configs for Elasticsearch. NOT installed by default.", default: false
-      class_option :headless_chrome, type: :boolean, desc: "Generate configs for headless Chrome. NOT installed by default."
+      class_option :headless_chrome, type: :boolean, desc: "Generate configs for headless Chrome. NOT installed by default.", default: false
       class_option :ruby_version, type: :string, desc: "Define the Ruby version to use", default: "2.6.5"
       class_option :elasticsearch_version, type: :string, desc: "Define the Elasticsearch version to use", default: "6.2.4"
       class_option :mysql_version, type: :string, desc: "Define the MySQL version to use", default: "5.6"

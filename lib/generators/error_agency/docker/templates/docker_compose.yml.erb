@@ -1,42 +1,103 @@
 version: '3.5'
 
+x-volumes: &volumes
+    - .:/app:cached
+    - bundle:/bundle
+    - node_modules:/app/node_modules
+    - packs:/app/public/packs
+    - rails_cache:/app/tmp/cache
+    - ~/.ssh:/root/.ssh
+    - irb_history:/root/irb_history
+    - ./config/docker/rails_base/.irbrc:/root/.irbrc
+
 services:
     rails_base: &rails_base
+        volumes:
+            *volumes
         build:
             context: .
             dockerfile: ./config/docker/rails_base/Dockerfile
         tmpfs:
             - /tmp
-        volumes:
-            - .:/app:cached
-            - bundle:/bundle
-            - node_modules:/app/node_modules
-            - packs:/app/public/packs
-            - rails_cache:/app/tmp/cache
-            - ~/.ssh:/root/.ssh
-            - irb_history:/root/irb_history
-            - ./config/docker/web/.irbrc:/root/.irbrc
-        stdin_open: true
-        tty: true
 
     web:
-        <<: *rails_base
+        image: rails_base:latest
+        volumes:
+            *volumes
+        depends_on:
+            - mysql
+            - redis
+            - webpacker
         ports:
             - 3000:3000
         command: rails s -b 0.0.0.0
         environment:
             - WEBPACKER_DEV_SERVER_HOST=webpacker
+        stdin_open: true
+        tty: true
+        entrypoint: ./config/docker/web/entrypoint.sh
 
     webpacker:
-        <<: *rails_base
+        image: rails_base:latest
+        volumes:
+            *volumes
+        depends_on:
+            - mysql
+            - redis
         ports:
             - 3035:3035
         command: ./bin/webpack-dev-server
         environment:
             - WEBPACKER_DEV_SERVER_HOST=0.0.0.0
 
+    <% if @headless_chrome %>
+    tests:
+        volumes:
+            *volumes
+        logging:
+            driver: none
+        ports:
+            - 5900:5900
+        build:
+            context: .
+            shm_size: 2g
+            dockerfile: ./config/docker/tests/Dockerfile
+        command: bash # run with `docker-compose run tests guard`
+        environment:
+            - RAILS_ENV=test
+            - WEBPACKER_DEV_SERVER_HOST=0.0.0.0
+    <% end %>
+
+    <% if @elasticsearch %>
+    elasticsearch:
+        build:
+            context: .
+            dockerfile: ./config/docker/elasticsearch/Dockerfile
+        ports:
+            - "9200:9200"
+            - "8080:8080"
+        environment:
+            # LOGSPOUT: 'ignore'
+            # ES_JAVA_OPTS: '-Xms1024m -Xmx1024m'
+            # bootstrap.memory_lock: 'false'
+            discovery.type: 'single-node'
+        # ulimits:
+        #   memlock:
+        #     soft: -1
+        #     hard: -1
+        #   nofile:
+        #     soft: 262144
+        #     hard: 262144
+        volumes:
+            - es_data:/usr/share/elasticsearch/data
+    <% end %>
+
+
+
     shell:
-        <<: *rails_base
+        image: rails_base:latest
+        volumes:
+            *volumes
         command: bash
 
     <% if @mysql %>
@@ -62,6 +123,7 @@ services:
         ports:
             - 6379:6379
     <% end %>
+
     <% if @mailhog %>
     mailhog:
         command: ["-smtp-bind-addr", "0.0.0.0:2525"]
@@ -71,47 +133,6 @@ services:
             - 2525:2525
             - 8025:8025
     <% end %>
-
-    <% if @elasticsearch %>
-    elasticsearch:
-        build:
-            context: .
-            dockerfile: ./config/docker/elasticsearch/Dockerfile
-        ports:
-            - "9200:9200"
-            - "8080:8080"
-        environment:
-            # LOGSPOUT: 'ignore'
-            # ES_JAVA_OPTS: '-Xms1024m -Xmx1024m'
-            # bootstrap.memory_lock: 'false'
-            discovery.type: 'single-node'
-        # ulimits:
-        #   memlock:
-        #     soft: -1
-        #     hard: -1
-        #   nofile:
-        #     soft: 262144
-        #     hard: 262144
-        volumes:
-            - es_data:/usr/share/elasticsearch/data
-        healthcheck:
-            test: ["CMD", "curl", "-SsfL", "127.0.0.1:9200/_cat/health?h=status"]
-            interval: 10s
-            timeout: 1s
-            retries: 10
-    <% end %>
-
-    <% if @headless_chrome %>
-    chrome:
-    logging:
-        driver: none
-    ports:
-        - 5900:5900
-    build:
-        context: .
-        shm_size: 2g
-        dockerfile: ./config/docker/chrome/Dockerfile
-    <% end %>
 volumes:
     bundle:
     node_modules:
@@ -120,3 +141,5 @@ volumes:
     db_data:
     irb_history:
     <% if @elasticsearch %>es_data:<% end %>
+
+

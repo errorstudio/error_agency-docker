@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set -e
+
+echo "Building Rails dependencies and creating database..."
+echo -n "Bundle..."
+bundle &> /dev/null
+echo "done"
+
+echo -n "Yarn..."
+yarn &> /dev/null
+echo "done"
+
+echo -n "Rails db:create..."
+rails db:create &> /dev/null
+echo "done"
+
+rm -f /app/tmp/pids/server.pid
+exec "$@"
